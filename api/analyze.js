@@ -25,34 +25,46 @@ Score: X/10. What works: [brief strengths]. Main barriers: [brief barriers]. Sug
 
 Keep the total response under 100 words.`;
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://agent-accessibility-analyzer.vercel.app',
-        'X-Title': 'Agent Accessibility Analyzer'
-      },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-3.2-3b-instruct:free',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 200
-      })
-    });
+  const models = [
+    'meta-llama/llama-3.2-3b-instruct:free',
+    'google/gemma-2-9b-it:free',
+    'mistralai/mistral-small-3.1-24b-instruct:free'
+  ];
 
-    if (!response.ok) {
-      const err = await response.text();
-      console.error('OpenRouter error:', response.status, err);
-      return res.status(502).json({ error: 'OpenRouter API error', detail: response.status });
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+    'HTTP-Referer': 'https://agent-accessibility-analyzer.vercel.app',
+    'X-Title': 'Agent Accessibility Analyzer'
+  };
+
+  for (const model of models) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: 200 })
+      });
+
+      if (response.status === 429) {
+        console.warn(`Rate limited on ${model}, trying next...`);
+        continue;
+      }
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error(`OpenRouter error on ${model}:`, response.status, err);
+        continue;
+      }
+
+      const data = await response.json();
+      const analysis = data.choices?.[0]?.message?.content?.trim() || 'Analysis unavailable';
+      return res.status(200).json({ tool, analysis, model });
+    } catch (err) {
+      console.error(`Fetch error on ${model}:`, err);
+      continue;
     }
-
-    const data = await response.json();
-    const analysis = data.choices?.[0]?.message?.content?.trim() || 'Analysis unavailable';
-
-    return res.status(200).json({ tool, analysis });
-  } catch (err) {
-    console.error('Fetch error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
   }
+
+  return res.status(503).json({ error: 'All models rate limited or unavailable. Try again in a moment.' });
 }
