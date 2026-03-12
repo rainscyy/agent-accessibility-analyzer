@@ -26,8 +26,10 @@ Score: X/10. What works: [brief strengths]. Main barriers: [brief barriers]. Sug
 Keep the total response under 100 words.`;
 
   const models = [
+    'deepseek/deepseek-r1:free',
     'meta-llama/llama-3.2-3b-instruct:free',
     'google/gemma-2-9b-it:free',
+    'qwen/qwen2.5-7b-instruct:free',
     'mistralai/mistral-small-3.1-24b-instruct:free'
   ];
 
